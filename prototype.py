@@ -1,11 +1,7 @@
 from pprint import pprint
 from sys import exit
-
+from common import read_access_token_from_file
 # simply trying out various ways to access to access facebook API
-
-def read_access_token_from_file(local_file_name):
-    with open(local_file_name, "r") as fid:
-        return fid.readline()
 
 def example_using_facebook_package(ACCESS_TOKEN, VERSION):
     # http://facebook-sdk.readthedocs.io/en/latest/api.html
@@ -16,7 +12,7 @@ def example_using_facebook_package(ACCESS_TOKEN, VERSION):
     pprint(posts)
     return
 
-def example_using_facepy_package(ACCESS_TOKEN, VERSION):
+def example_using_facepy_package(ACCESS_TOKEN):
     # https://github.com/jgorset/facepy
     from facepy import GraphAPI
     graph = GraphAPI(ACCESS_TOKEN)
@@ -30,4 +26,4 @@ if __name__ == '__main__':
     VERSION = '2.7'
     
 #    example_using_facebook_package(ACCESS_TOKEN, VERSION)
-    example_using_facepy_package(ACCESS_TOKEN, VERSION)
+    example_using_facepy_package(ACCESS_TOKEN)
