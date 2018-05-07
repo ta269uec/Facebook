@@ -130,7 +130,6 @@ if __name__ == '__main__':
     ACCESS_TOKEN = read_access_token_from_file(TOKEN_FILE_NAME)
     graph_api = GraphAPI(ACCESS_TOKEN)
     
-    
     additional_post_fields = ['created_time', 'from', 'caption', 'timeline_visibility', 'privacy', 'message', 'place', 'story', 'with_tags']
     additional_post_edges = {
                     'reactions':['type','profile_type','username','name'],
@@ -168,7 +167,6 @@ if __name__ == '__main__':
     K = 10
     plot_bar_chart(name[:K], frequency[:K], x_label_rotation = 30, x_label_fontsize = 6, y_label='Number of Posts Reacted', title='Top %s friends who react on my posts.'%(K))
     plot_bar_chart(['']*len(name), frequency, x_label_rotation = 30, x_label_fontsize = 6, y_label='Number of Posts Reacted', title='Distribution of reactions')            
-    pprint(friends_reaction_type_frequency)
     total_reactions = sum((c for a,b,c in friends_reaction_type_frequency))
     unique_friends_who_reacted = len(friends_reaction_type_frequency)
     total_friends = my_posts.total_friends
@@ -180,4 +178,3 @@ if __name__ == '__main__':
         if so_far >= threshold*total_reactions:
             break
     print("%s friends from %s total friends i.e. %s percent friends are responsible for %s percent reactions on your posts."%(str(frnd_cnt), str(total_friends), str(round(frnd_cnt*100.0/total_friends, 2)), str(threshold*100)))
-    
