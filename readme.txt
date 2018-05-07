@@ -27,3 +27,7 @@ as 1000000 (I know my posts are less than that). In future, implement a generato
 3) __pycache__ and .pydev project files have been checked in. Remove them.
 
 4) Reorganize the code structure, add tests, and documentation etc conforming to git guidelines.
+
+5) The plots should have an as-of date in the title of the plot.
+
+6) "Distribution of reactions" should have the x-axis labeled.
