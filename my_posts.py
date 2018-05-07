@@ -7,7 +7,7 @@ from copy import deepcopy
 from facepy import GraphAPI
 from facepy.utils import get_extended_access_token
 
-from common import read_access_token_from_file, convert_time_zone
+from common import read_access_token_from_file, convert_time_zone, plot_bar_chart,plot_pie_chart
 
 class MyPosts(object):
     # The required post fields, post edges, and options are defined here. 
@@ -42,11 +42,9 @@ class MyPosts(object):
             for k,v in options.items():
                 temp[k] = v
             options = temp
-        
-#         pprint(options)
-#         exit()
         self.posts = graph_api.get(self.__build_query_string(fields, post_edges, options))['data']
-        post_id_view, reaction_view = self.__build_post_views(self.posts)
+        self.total_friends = graph_api.get('me/friends')['summary']['total_count']        
+        self.data_views = self.__build_post_views(self.posts)
         return
     
     def __get_me_id(self, graph_api):
@@ -81,22 +79,47 @@ class MyPosts(object):
         
         WEEKDAYS = ["Mon", "Tues", "Wed", "Thrus", "Fri", "Sat", "Sun"]
         for post in posts:
-#             if 'from' in post and post['from']['id'] ==  self.me_id:
-            post_id_view[post['id']] = post
-            if 'created_time' in post:
-                utc_created_time = datetime.strptime(post['created_time'], '%Y-%m-%dT%H:%M:%S+0000')
-                est_created_time = convert_time_zone(from_date_time=utc_created_time, from_zone='UTC', to_zone='America/New_York')
-                year, month, weekday, hour, minute = est_created_time.year, est_created_time.month, WEEKDAYS[est_created_time.weekday()], est_created_time.hour, est_created_time.minute 
-                year_month_view[year].setdefault(month, []).append(post['id'])
-                weekday_hour_view[weekday].setdefault(hour, []).append(post['id'])
-            if "reactions" in post:
-                for reaction in post["reactions"]["data"]:
-                    reaction_id_view[reaction['id']] = post['id']
-                    if 'type' in reaction:
-                        reaction_type_view[reaction['type']].append(post['id'])
-                        if 'name' in reaction and 'profile_type' in reaction and  reaction['profile_type'] == 'user':
-                            friend_reaction_view[reaction['name']].setdefault(reaction['type'], []).append(post['id'])
-        return post_id_view, reaction_id_view
+            if 'from' in post and post['from']['id'] ==  self.me_id:
+                post_id_view[post['id']] = post
+                if 'created_time' in post:
+                    utc_created_time = datetime.strptime(post['created_time'], '%Y-%m-%dT%H:%M:%S+0000')
+                    est_created_time = convert_time_zone(from_date_time=utc_created_time, from_zone='UTC', to_zone='America/New_York')
+                    year, month, weekday, hour, minute = est_created_time.year, est_created_time.month, WEEKDAYS[est_created_time.weekday()], est_created_time.hour, est_created_time.minute 
+                    year_month_view[year].setdefault(month, []).append(post['id'])
+                    weekday_hour_view[weekday].setdefault(hour, []).append(post['id'])
+                if "reactions" in post:
+                    for reaction in post["reactions"]["data"]:
+                        reaction_id_view[reaction['id']] = post['id']
+                        if 'type' in reaction:
+                            reaction_type_view[reaction['type']].append(post['id'])
+                            if 'name' in reaction and 'profile_type' in reaction and  reaction['profile_type'] == 'user':
+                                friend_reaction_view[reaction['name']].setdefault(reaction['type'], []).append(post['id'])
+
+        data_views = {
+                        "post_id_view":post_id_view,
+                        "reaction_id_view":reaction_id_view,
+                        "reaction_type_view":reaction_type_view,
+                        "friend_reaction_view":friend_reaction_view,
+                        "year_month_view":year_month_view,
+                        "weekday_hour_view":weekday_hour_view
+                    }                            
+        return data_views
+    
+    def show_monthly_posts_frequency(self, since_year = None):
+        since_year = 1800 if since_year is None else since_year
+        return {k:{k1:len(v1) for k1,v1 in v.items()} for k,v in self.data_views['year_month_view'].items() if k >= since_year}
+    
+    def show_reactions_type_frequency(self):
+        return {k:len(v) for k,v in self.data_views['reaction_type_view'].items()}
+    
+    def show_sorted_friends_reaction_type_frequency(self):
+        friends_reaction_type_frequency = []
+        for k,v in self.data_views['friend_reaction_view'].items():
+            reactions_frequency = {k1:len(v1) for k1,v1 in v.items()}
+            total_frequency = sum(reactions_frequency.values())
+            friends_reaction_type_frequency.append((k, reactions_frequency, total_frequency))
+        friends_reaction_type_frequency.sort(key=lambda x:x[2], reverse=True)
+        return friends_reaction_type_frequency
     
 if __name__ == '__main__':
     # Paste your app token in a local file on your machine and add its path here.
@@ -115,5 +138,46 @@ if __name__ == '__main__':
                     'attachments':['type','title','description']                                        
                  }
     additional_options = {'include_hidden':True, 'limit':"1000000"} # TODO: Implement pagination using a generator
-    my_posts = MyPosts(graph_api, options=additional_options)    
-    pprint(my_posts.posts)
+    my_posts = MyPosts(graph_api, options=additional_options)
+    
+    # Bar Chart to show the frequency of posts on a monthly basis.
+    since_year = 2015
+    monthly_posts = my_posts.show_monthly_posts_frequency(since_year=since_year)
+    dates, frequency = [], []
+    for year in sorted(monthly_posts.keys()):
+        for month in sorted(monthly_posts[year].keys()):
+            dates.append("%s/%s"%(month,str(year)[2:]))
+            frequency.append(monthly_posts[year][month])
+    print("Total number of posts since year %s are %s."%(since_year, sum(frequency)))
+    plot_bar_chart(dates, frequency, y_label='Number of Posts', title='Monthly Facebook posts since %s.'%(since_year))
+    
+    # Bar Chart to show the frequency of different reaction type on posts.        
+    reactions_type_freq = my_posts.show_reactions_type_frequency()
+    reaction_types, frequency = [], []
+    for reaction_type in reactions_type_freq:
+        reaction_types.append(reaction_type)
+        frequency.append(reactions_type_freq[reaction_type])
+    plot_pie_chart(frequency, reaction_types, title='Proportion of different reactions on posts.', hide_labels_in_chart=True, smart_legends = True)
+    
+    # Bar Chart to show the frequency of different reaction type on posts.        
+    friends_reaction_type_frequency = my_posts.show_sorted_friends_reaction_type_frequency()
+    name, frequency = [], []
+    for i in range(len(friends_reaction_type_frequency)):
+        name.append(friends_reaction_type_frequency[i][0])
+        frequency.append(friends_reaction_type_frequency[i][2])
+    K = 10
+    plot_bar_chart(name[:K], frequency[:K], x_label_rotation = 30, x_label_fontsize = 6, y_label='Number of Posts Reacted', title='Top %s friends who react on my posts.'%(K))
+    plot_bar_chart(['']*len(name), frequency, x_label_rotation = 30, x_label_fontsize = 6, y_label='Number of Posts Reacted', title='Distribution of reactions')            
+    pprint(friends_reaction_type_frequency)
+    total_reactions = sum((c for a,b,c in friends_reaction_type_frequency))
+    unique_friends_who_reacted = len(friends_reaction_type_frequency)
+    total_friends = my_posts.total_friends
+    threshold = 0.8
+    so_far, frnd_cnt = 0, 0
+    for _,_,cnt in friends_reaction_type_frequency:
+        so_far += cnt
+        frnd_cnt += 1
+        if so_far >= threshold*total_reactions:
+            break
+    print("%s friends from %s total friends i.e. %s percent friends are responsible for %s percent reactions on your posts."%(str(frnd_cnt), str(total_friends), str(round(frnd_cnt*100.0/total_friends, 2)), str(threshold*100)))
+    
